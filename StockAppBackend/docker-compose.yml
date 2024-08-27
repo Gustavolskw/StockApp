@@ -1,0 +1,179 @@
+version: "3.8"
+
+services:
+    laravel.test1:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: "${WWWGROUP}"
+        image: sail-8.3/app
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        ports:
+            - "8081:80"
+        environment:
+            WWWUSER: "${WWWUSER}"
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: "${SAIL_XDEBUG_MODE:-off}"
+            XDEBUG_CONFIG: "${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}"
+            IGNITION_LOCAL_SITES_PATH: "${PWD}"
+        volumes:
+            - ".:/var/www/html:cached"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.11
+
+    laravel.test2:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: "${WWWGROUP}"
+        image: sail-8.3/app
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        ports:
+            - "8082:80"
+        environment:
+            WWWUSER: "${WWWUSER}"
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: "${SAIL_XDEBUG_MODE:-off}"
+            XDEBUG_CONFIG: "${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}"
+            IGNITION_LOCAL_SITES_PATH: "${PWD}"
+        volumes:
+            - ".:/var/www/html:cached"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.12
+
+    laravel.test3:
+        build:
+            context: ./vendor/laravel/sail/runtimes/8.3
+            dockerfile: Dockerfile
+            args:
+                WWWGROUP: "${WWWGROUP}"
+        image: sail-8.3/app
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        ports:
+            - "8083:80"
+        environment:
+            WWWUSER: "${WWWUSER}"
+            LARAVEL_SAIL: 1
+            XDEBUG_MODE: "${SAIL_XDEBUG_MODE:-off}"
+            XDEBUG_CONFIG: "${SAIL_XDEBUG_CONFIG:-client_host=host.docker.internal}"
+            IGNITION_LOCAL_SITES_PATH: "${PWD}"
+        volumes:
+            - ".:/var/www/html:cached"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.13
+
+    nginx:
+        image: nginx:latest
+        ports:
+            - "80:80"
+        volumes:
+            - "./nginx.conf:/etc/nginx/nginx.conf"
+        depends_on:
+            - laravel.test1
+            - laravel.test2
+            - laravel.test3
+        networks:
+            sail:
+                ipv4_address: 172.25.0.14
+
+    mysql:
+        image: "mysql/mysql-server:8.0"
+        ports:
+            - "3307:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: "${DB_PASSWORD}"
+            MYSQL_ROOT_HOST: "%"
+            MYSQL_DATABASE: "${DB_DATABASE}"
+            MYSQL_USER: "${DB_USERNAME}"
+            MYSQL_PASSWORD: "${DB_PASSWORD}"
+        volumes:
+            - "sail-mysql:/var/lib/mysql"
+            - "./vendor/laravel/sail/database/mysql/create-testing-database.sh:/docker-entrypoint-initdb.d/10-create-testing-database.sh"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.10
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - "mysqladmin ping -p${DB_PASSWORD} --silent"
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: "redis:alpine"
+        ports:
+            - "${FORWARD_REDIS_PORT:-6379}:6379"
+        volumes:
+            - "sail-redis:/data"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.17
+        healthcheck:
+            test:
+                - CMD
+                - redis-cli
+                - ping
+            retries: 3
+            timeout: 5s
+
+    meilisearch:
+        image: "getmeili/meilisearch:latest"
+        ports:
+            - "${FORWARD_MEILISEARCH_PORT:-7700}:7700"
+        environment:
+            MEILI_NO_ANALYTICS: "${MEILISEARCH_NO_ANALYTICS:-false}"
+        volumes:
+            - "sail-meilisearch:/meili_data"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.18
+        healthcheck:
+            test:
+                - CMD-SHELL
+                - "wget --no-verbose --spider http://127.0.0.1:7700/health || exit 1"
+            retries: 3
+            timeout: 5s
+
+    mailpit:
+        image: "axllent/mailpit:latest"
+        ports:
+            - "${FORWARD_MAILPIT_PORT:-1025}:1025"
+            - "${FORWARD_MAILPIT_DASHBOARD_PORT:-8025}:8025"
+        networks:
+            sail:
+                ipv4_address: 172.25.0.19
+
+    selenium:
+        image: selenium/standalone-chrome
+        extra_hosts:
+            - "host.docker.internal:host-gateway"
+        volumes:
+            - "/dev/shm:/dev/shm"
+        environment:
+            - PULSE_SERVER=127.0.0.1
+        networks:
+            sail:
+                ipv4_address: 172.25.0.20
+
+networks:
+    sail:
+        driver: bridge
+        ipam:
+            config:
+                - subnet: 172.25.0.0/16
+
+volumes:
+    sail-mysql:
+        driver: local
+    sail-redis:
+        driver: local
+    sail-meilisearch:
+        driver: local
