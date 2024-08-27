@@ -2,31 +2,44 @@
 
 namespace App\Http\Controllers;
 
-use App\ExceptionHandler;
-use App\Http\Requests\UserLoginRequest;
-use App\Http\Requests\UserRegisterRequest;
 use App\Http\Resources\UserView;
+use App\Interfaces\UserRepositoryInterface;
 use App\Models\User;
 use App\Traits\HttpResponses;
-use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
-class AuthController extends Controller
+class AuthController extends Controller implements HasMiddleware
 {
     use HttpResponses;
+
+    private UserRepositoryInterface $userRepository;
+    public function __construct(UserRepositoryInterface $usersInterface)
+    {
+        $this->userRepository = $usersInterface;
+    }
 
     public static function middleware()
     {
         return [
-            new Middleware('auth:sanctum', except: ['index', 'show'])
+            new Middleware('auth:sanctum', except: ['login', 'store'])
         ];
     }
-    public function store(UserRegisterRequest $request)
+    public function store(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:4', 'max:70'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'role' => ['required', 'numeric', 'exists:access_type,id_access_type'],
+            'password' => ['required', 'min:5', 'confirmed']
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse("Validation Error", 422, $validator->errors());
+        }
 
         $newUser = new User([
             'name' => $request->get('name'),
@@ -35,7 +48,8 @@ class AuthController extends Controller
         ]);
         $newUser->accessType()->associate($request->get('role'));
 
-        $newUser->save();
+        $this->userRepository->store($newUser);
+
         if ($newUser->accessType->access_level == 0) {
             $abilities = [0];
         } else {
@@ -49,29 +63,35 @@ class AuthController extends Controller
         return $this->successAuthResponse("User Created with success!", 201, new UserView($newUser), $token->plainTextToken);
     }
 
-    public function login(UserLoginRequest $request)
+    public function login(Request $request)
     {
-        try {
-            $user = User::where('email', $request->get('email'))->first();
-        } catch (QueryException $e) {
-            return $this->exceptionResponse("Erro during search for user!", 422, $e);
+
+        $validator = Validator::make($request->all(), [
+            'email' => ['required', 'email',],
+            'password' => ['required', 'min:5']
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse("Validation Error", 422, $validator->errors());
         }
-        if (!$user || !Hash::check($request->password, $user->password)) {
+
+        $user = $this->userRepository->showByEmail($request->get('email'));
+        if (!$user['data'] || !Hash::check($request->get('password'), $user['data']->password)) {
             return response(json_encode([
                 'Error' => "The Provided Credential are Incorrect.."
             ]), 400);
         }
         $abilities = [];
-        $user->tokens()->delete();
-        if ($user->accessType->access_level == 0) {
+        $user['data']->tokens()->delete();
+        if ($user['data']->accessType->access_level == 0) {
             $abilities = [0];
         } else {
 
-            for ($i = 0; $i <= $user->accessType->access_level; $i++) {
+            for ($i = 0; $i <= $user['data']->accessType->access_level; $i++) {
                 $abilities[] = $i;
             }
         }
-        $token = $user->createToken($user->name . uniqid(), $abilities, now()->addHours(2));
+        $token = $user['data']->createToken($user['data']->name . uniqid(), $abilities, now()->addHours(2));
 
         return $this->successAuthResponse("User Logged In with success!", 200, [], $token->plainTextToken);
     }
@@ -93,7 +113,7 @@ class AuthController extends Controller
 
     public function index()
     {
-        return response(json_encode(UserView::collection(User::all())), 200);
+        return response(json_encode($this->userRepository->index()['data']), 200);
     }
     public function show(int $id)
     {
@@ -106,16 +126,11 @@ class AuthController extends Controller
             return $this->errorResponse("Invalid ID provided!", 422, $validator->errors());
         }
 
-        try {
-            $user = User::where('id', $id)->first();
-            if ($user === null) {
-                return $this->errorResponse("User not Found!", 404, ["error" => "User Id is not registered!"]);
-            }
 
-            // Return a single resource instance instead of a collection
-            return response()->json(new UserView($user), 200);
-        } catch (QueryException $q) {
-            return $this->exceptionResponse("Erro while executing a search for the User!", 400, $q);
+        $user = $this->userRepository->showById($id);
+        if (!$user['success']) {
+            return $this->exceptionResponse('Erro ao Executar busca de Usuario!', 400, $user['message']);
         }
+        return response()->json(new UserView($user['data']), 200);
     }
 }
