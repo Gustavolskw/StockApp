@@ -10,6 +10,9 @@ Route::get('/user', function (Request $request) {
 
 Route::post('/register', [AuthController::class, 'store']);
 Route::post('/login', [AuthController::class, 'login']);
-Route::delete('/logout', [AuthController::class, 'destroy'])->middleware('auth:sanctum');
-Route::get('/users/{id}', [AuthController::class, 'show'])->middleware('auth:sanctum');
-Route::get('users', [AuthController::class, 'index'])->middleware('auth:sanctum');
+Route::delete('/logout', [AuthController::class, 'destroy']);
+Route::get('/users/{id}', [AuthController::class, 'show']);
+Route::get('users', [AuthController::class, 'index']);
+Route::delete('users/delete/{id}', [AuthController::class, 'delete']);
+Route::put('users/active/{id}', [AuthController::class, 'active']);
+Route::put('users/update/{id}', [AuthController::class, 'update']);

@@ -16,6 +16,12 @@ trait HttpResponses
             'data' => $data,
         ], $status);
     }
+    public function successMessageResponse(string $message, int $status)
+    {
+        return response()->json([
+            'message' => $message,
+        ], $status);
+    }
     public function successAuthResponse(string $message, int $status, array|JsonResource $data = [], string $token)
     {
         return response()->json([
@@ -25,26 +31,25 @@ trait HttpResponses
         ], $status);
     }
 
-    public function errorResponse(string $message, int $status, array|MessageBag $errors, array $data = [])
+    public function errorResponse(string $message, int $status, array|MessageBag $errors)
     {
         return response()->json([
             "message" => $message,
-            "data" => $data,
             'errors' => $errors
         ], $status);
     }
-    public function exceptionResponse(string $message, int $status, Exception $errors)
+    public function exceptionResponse(string $message, int $status, string $errors)
     {
         return response()->json([
             "message" => $message,
-            'errors' => $errors->getMessage()
+            'errors' => $errors
         ], $status);
     }
 
-    public function badCredentialsResponse(string $message = "Credénciais inválidas!", int $status)
+    public function badCredentialsResponse(int $status)
     {
         return response()->json([
-            "message" => $message,
+            "message" => "Credénciais inválidas!",
         ], $status);
     }
 }
