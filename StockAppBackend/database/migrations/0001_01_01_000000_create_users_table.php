@@ -24,6 +24,7 @@ return new class extends Migration
             $table->unsignedBigInteger('access_id'); // Match the type to id_access_type
             $table->foreign('access_id')->references('id_access_type')->on('access_type');
             $table->string('password', 255);
+            $table->boolean('ativo')->default(true);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

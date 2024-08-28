@@ -46,10 +46,10 @@ trait HttpResponses
         ], $status);
     }
 
-    public function badCredentialsResponse(string $message = "Credénciais inválidas!", int $status)
+    public function badCredentialsResponse(int $status)
     {
         return response()->json([
-            "message" => $message,
+            "message" => "Credénciais inválidas!",
         ], $status);
     }
 }

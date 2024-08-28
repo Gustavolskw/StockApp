@@ -48,7 +48,11 @@ class AuthController extends Controller implements HasMiddleware
         ]);
         $newUser->accessType()->associate($request->get('role'));
 
-        $this->userRepository->store($newUser);
+        $userSave = $this->userRepository->store($newUser);
+
+        if ($userSave['success'] == false) {
+            $this->exceptionResponse("Erro ao Registrar Usuario!", 422, $userSave['message']);
+        }
 
         if ($newUser->accessType->access_level == 0) {
             $abilities = [0];
@@ -60,7 +64,7 @@ class AuthController extends Controller implements HasMiddleware
         }
         $token = $newUser->createToken($newUser->name . uniqid(), $abilities, now()->addHours(2));
 
-        return $this->successAuthResponse("User Created with success!", 201, new UserView($newUser), $token->plainTextToken);
+        return $this->successAuthResponse($userSave['message'], 201, new UserView($newUser), $token->plainTextToken);
     }
 
     public function login(Request $request)
@@ -76,11 +80,16 @@ class AuthController extends Controller implements HasMiddleware
         }
 
         $user = $this->userRepository->showByEmail($request->get('email'));
+
+        if ($user['data']->ativo == false) {
+            return $this->badCredentialsResponse(200);
+        }
         if (!$user['data'] || !Hash::check($request->get('password'), $user['data']->password)) {
             return response(json_encode([
                 'Error' => "The Provided Credential are Incorrect.."
             ]), 400);
         }
+
         $abilities = [];
         $user['data']->tokens()->delete();
         if ($user['data']->accessType->access_level == 0) {
@@ -113,7 +122,16 @@ class AuthController extends Controller implements HasMiddleware
 
     public function index()
     {
-        return response(json_encode($this->userRepository->index()['data']), 200);
+        $response = $this->userRepository->index();
+
+        if ($response['success']) {
+            return response()->json([
+                'users' => $response['data'],
+                'lastPage' => $response['lastPage']
+            ], 200);
+        } else {
+            $this->errorResponse("Erro while searching for users", 400, $response['message']);
+        }
     }
     public function show(int $id)
     {
@@ -132,5 +150,81 @@ class AuthController extends Controller implements HasMiddleware
             return $this->exceptionResponse('Erro ao Executar busca de Usuario!', 400, $user['message']);
         }
         return response()->json(new UserView($user['data']), 200);
+    }
+
+    public function delete(int $id, Request $request)
+    {
+        $validator = Validator::make(['id' => $id], [
+            'id' => ['required', 'numeric']
+        ]);
+        if ($validator->fails()) {
+            return $this->errorResponse("Invalid ID provided!", 422, $validator->errors());
+        }
+
+        dd($request->user()->accessToken());
+
+
+
+        $delete = $this->userRepository->delete($id);
+
+        if ($delete['success'] == false) {
+            return $this->exceptionResponse("Erro ao Desativar o Usuario", 422, $delete['message']);
+        } else {
+            return $this->successMessageResponse($delete['message'], 200);
+        }
+    }
+
+    public function active(int $id)
+    {
+
+        $validator = Validator::make(['id' => $id], [
+            'id' => ['required', 'numeric']
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse("Invalid ID provided!", 422, $validator->errors());
+        }
+
+        $active = $this->userRepository->active($id);
+
+        if ($active['success'] == false) {
+            return $this->exceptionResponse("Erro ao Reativar o Usuario", 422, $active['message']);
+        } else {
+            return $this->successMessageResponse($active['message'], 200);
+        }
+    }
+
+    public function update(int $id, Request $request)
+    {
+
+        $validatorId = Validator::make(['id' => $id], [
+            'id' => ['required', 'numeric']
+        ]);
+
+        if ($validatorId->fails()) {
+            return $this->errorResponse("Invalid ID provided!", 422, $validatorId->errors());
+        }
+
+        $validator = Validator::make($request->all(), [
+            'name' => ['required', 'string', 'min:4', 'max:70'],
+            'email' => ['required', 'email', 'unique:users,email'],
+            'role' => ['required', 'numeric', 'exists:access_type,id_access_type'],
+            'oldPassword' => ['required', 'min:5'],
+            'newPassword' => ['required', 'min:5', 'confirmed']
+        ]);
+
+        if ($validator->fails()) {
+            return $this->errorResponse("Validation Error", 422, $validator->errors());
+        }
+
+        $updateUser = $validator->validated();
+
+        $update = $this->userRepository->update($updateUser, $id);
+
+        if ($update['success'] == false) {
+            return $this->exceptionResponse("Error While Editing User!", 422, $update['message']);
+        } else {
+            return $this->successMessageResponse($update['message'], 200);
+        }
     }
 }

@@ -18,7 +18,8 @@ class UserView extends JsonResource
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
-            'acess_type' => $this->accessType->access_name,
+            'acessLevel' => $this->accessType->access_name,
+            'status' => $this->ativo
 
         ];
     }
