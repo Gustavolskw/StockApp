@@ -18,7 +18,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
 
-        //$this->call(AccessSeeder::class);
+        $this->call(AccessSeeder::class);
 
         $faker = Factory::create();
         for ($i = 0; $i < 10; $i++) {

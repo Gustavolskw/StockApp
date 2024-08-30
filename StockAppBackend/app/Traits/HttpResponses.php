@@ -38,6 +38,7 @@ trait HttpResponses
             'errors' => $errors
         ], $status);
     }
+
     public function exceptionResponse(string $message, int $status, string $errors)
     {
         return response()->json([

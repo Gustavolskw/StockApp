@@ -81,8 +81,12 @@ class AuthController extends Controller implements HasMiddleware
 
         $user = $this->userRepository->showByEmail($request->get('email'));
 
+
+        if (!$user['success']) {
+            return $this->badCredentialsResponse(400);
+        }
         if ($user['data']->ativo == false) {
-            return $this->badCredentialsResponse(200);
+            return $this->badCredentialsResponse(400);
         }
         if (!$user['data'] || !Hash::check($request->get('password'), $user['data']->password)) {
             return response(json_encode([
