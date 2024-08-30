@@ -137,7 +137,7 @@ class AuthController extends Controller implements HasMiddleware
             $this->errorResponse("Erro while searching for users", 400, $response['message']);
         }
     }
-    public function show(int $id)
+    public function show($id)
     {
         $validator = Validator::make(['id' => $id], [
             'id' => ['required', 'numeric']
@@ -156,7 +156,7 @@ class AuthController extends Controller implements HasMiddleware
         return response()->json(new UserView($user['data']), 200);
     }
 
-    public function delete(int $id, Request $request)
+    public function delete($id, Request $request)
     {
         $validator = Validator::make(['id' => $id], [
             'id' => ['required', 'numeric']
@@ -178,7 +178,7 @@ class AuthController extends Controller implements HasMiddleware
         }
     }
 
-    public function active(int $id)
+    public function active($id)
     {
 
         $validator = Validator::make(['id' => $id], [
@@ -198,7 +198,7 @@ class AuthController extends Controller implements HasMiddleware
         }
     }
 
-    public function update(int $id, Request $request)
+    public function update($id, Request $request)
     {
 
         $validatorId = Validator::make(['id' => $id], [
