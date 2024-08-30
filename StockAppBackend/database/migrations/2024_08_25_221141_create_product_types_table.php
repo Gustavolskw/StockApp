@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('product_types', function (Blueprint $table) {
             $table->id('id_type'); // No need to add autoIncrement()
-            $table->string('type_name', 100);
+            $table->string('type_name', 45)->unique();
         });
     }
 
